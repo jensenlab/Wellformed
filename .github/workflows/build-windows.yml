@@ -1,0 +1,45 @@
+name: Build Windows app
+
+# Builds the standalone Windows app (bundled Julia runtime, no install needed on the target PC).
+# Run it from the Actions tab ("Run workflow"), or push a tag like v0.1.0. The finished app is
+# attached to the run as an artifact named "wellformed-windows".
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: "1.12"
+
+      - name: Build the app
+        run: julia build/build_app.jl
+
+      - name: Smoke test the built app
+        run: |
+          set -e
+          EXE=dist/wellformed/bin/Wellformed.exe
+          test -f "$EXE"
+          "$EXE" --version | tee version.txt
+          grep -q 'bin.Wellformed.exe' version.txt      # start-at-login would register this path
+          "$EXE" --help > /dev/null
+          for f in test/fixtures/*.xlsx; do "$EXE" --check "$f"; done      # good exports must pass
+          head -c 3000 test/fixtures/single_plate_timeseries.xlsx > truncated.xlsx
+          if "$EXE" --check truncated.xlsx; then echo "truncated file was NOT flagged"; exit 1; fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wellformed-windows
+          path: dist/wellformed
+          if-no-files-found: error
+          retention-days: 30
