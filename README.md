@@ -16,8 +16,11 @@ sanity checks (non-empty reads, equal reading counts per well, rectangular well 
 only checked once they stop changing (`settle_seconds`), so a file still being written is not
 reported as truncated.
 
-Config: copy `wellformed.example.toml` to `wellformed.toml`. Basecamp: create a Campfire chatbot
-and put its URL in `[basecamp] url` or `WELLFORMED_BASECAMP_URL`.
+Setup: run `wellformed` (or `wellformed --setup`). It asks for the folder to watch and the Basecamp
+Campfire chatbot URL, saves them to a per-user config file (Windows `%APPDATA%\Wellformed`, macOS
+`~/Library/Application Support/Wellformed`), sends a test alert, and offers to start at login
+(`--install-startup` / `--uninstall-startup` do that directly). `wellformed.example.toml` documents
+every setting for hand editing.
 
 Deploy: `build/build_app.jl` on a Windows machine, copy `dist/wellformed/` and the config to the
 instrument PC. Tests: `julia --project -e 'using Pkg; Pkg.test()'` (needs `../CHESS/CHESSParsers`).

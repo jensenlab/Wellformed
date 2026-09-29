@@ -50,17 +50,22 @@ end
 
 function _usage()
     println("""
-    wellformed [config.toml]          watch the folders in the config (default: ./wellformed.toml)
+    wellformed                        watch using the saved settings (runs setup first if there are none)
+    wellformed CONFIG.toml            watch using a specific config file
+    wellformed --setup                choose the folder to watch and the Basecamp chatbot; saves settings
+    wellformed --install-startup      start automatically at login (--uninstall-startup to undo)
+    wellformed --test-alert [CONFIG]  send a fake failure through the configured alerts
     wellformed --check FILE [FILE...] check files once, print results, exit 1 if any FAIL
-    wellformed --test-alert [config.toml]  send a fake failure through the configured alerts
+
+    Settings file: $(config_path())
     """)
 end
 
 function main(args::Vector{String}=ARGS)
-    if !isempty(args) && args[1] in ("-h", "--help")
+    cmd = isempty(args) ? "" : args[1]
+    if cmd in ("-h", "--help")
         _usage(); return 0
-    end
-    if !isempty(args) && args[1] == "--check"
+    elseif cmd == "--check"
         files = args[2:end]
         isempty(files) && (_usage(); return 2)
         worst = OK
@@ -71,9 +76,21 @@ function main(args::Vector{String}=ARGS)
             worst = max(worst, r.status)
         end
         return worst == FAIL ? 1 : 0
-    end
-    if !isempty(args) && args[1] == "--test-alert"
-        cfgpath = length(args) >= 2 ? args[2] : "wellformed.toml"
+    elseif cmd == "--setup"
+        return run_setup(length(args) >= 2 ? args[2] : config_path()) === nothing ? 1 : 0
+    elseif cmd in ("--install-startup", "--uninstall-startup")
+        try
+            if cmd == "--install-startup"
+                println("Installed: ", install_startup())
+            else
+                println(uninstall_startup() ? "Removed." : "Nothing to remove.")
+            end
+            return 0
+        catch e
+            println(stderr, _errmsg(e)); return 1
+        end
+    elseif cmd == "--test-alert"
+        cfgpath = length(args) >= 2 ? args[2] : config_path()
         cfg = isfile(cfgpath) ? load_config(cfgpath) : Config()
         r = CheckResult("TEST_ALERT.xlsx", FAIL,
                         [Issue(FAIL, "this is a test of the Wellformed alert path; no real file is affected")], "", 0.0)
@@ -82,15 +99,23 @@ function main(args::Vector{String}=ARGS)
         foreach(wait, handle_result(cfg, r, ns))
         println("done; check the log for any notifier errors: ", cfg.log_path)
         return 0
+    elseif startswith(cmd, "-")
+        println(stderr, "unknown option: $cmd"); _usage(); return 2
     end
-    cfgpath = isempty(args) ? "wellformed.toml" : args[1]
+
+    cfgpath = isempty(args) ? config_path() : args[1]
     if !isfile(cfgpath)
-        println(stderr, "config file not found: $cfgpath"); return 2
+        if !isempty(args)
+            println(stderr, "config file not found: $cfgpath"); return 2
+        end
+        println("No settings found - starting setup.")
+        run_setup(cfgpath) === nothing && return 1
     end
     cfg = load_config(cfgpath)
     if isempty(cfg.watch_dirs)
-        println(stderr, "config has no watch_dirs"); return 2
+        println(stderr, "config has no watch_dirs; run with --setup"); return 2
     end
+    println("Wellformed is watching: ", join(cfg.watch_dirs, ", "), "  (log: ", cfg.log_path, ")")
     try
         run_watcher(cfg)
     catch e

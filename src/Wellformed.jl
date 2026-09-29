@@ -6,9 +6,11 @@ include("config.jl")
 include("check.jl")
 include("watcher.jl")
 include("notify/notify.jl")
+include("setup.jl")
+include("startup.jl")
 include("run.jl")
 
-export Config, load_config, check_file, CheckResult, Issue, Status, OK, WARN, FAIL,
+export Config, load_config, save_config, config_path, run_setup, install_startup, uninstall_startup, check_file, CheckResult, Issue, Status, OK, WARN, FAIL,
        Watcher, poll!, run_watcher, Notifier, notify, main, julia_main
 
 end # module Wellformed

@@ -86,3 +86,73 @@ end
         endswith(f, ".xlsx") && @test check_file(f).status == OK
     end
 end
+
+@testset "config save/load round trip" begin
+    d = mktempdir(); p = joinpath(d, "sub", "config.toml")
+    cfg = Config(watch_dirs=[d], basecamp_enabled=true, basecamp_url="https://example.com/x",
+                 log_path=joinpath(d, "w.log"), settle_seconds=7.0, machine_name="PC1")
+    save_config(cfg, p)
+    back = load_config(p)
+    @test back.watch_dirs == [d] && back.basecamp_enabled && back.basecamp_url == "https://example.com/x"
+    @test back.settle_seconds == 7.0 && back.machine_name == "PC1"
+    Sys.iswindows() || @test (filemode(p) & 0o077) == 0      # holds a credential
+    # relative log_path resolves next to the config file, not the cwd
+    write(p, "watch_dirs = ['$d']\nlog_path = 'x.log'\n")
+    @test load_config(p).log_path == joinpath(dirname(abspath(p)), "x.log")
+end
+
+const BC_URL = "https://3.basecamp.com/1234567/integrations/AbCdEf123/buckets/111/chats/222/line"
+
+scripted(; folder, texts, yes=false) = begin
+    said = String[]; asked = String[]; q = collect(texts)
+    ui = Wellformed.UI(folder=(p, d) -> folder, text=(p, d) -> (push!(asked, p); isempty(q) ? nothing : popfirst!(q)),
+                       yesno=p -> yes, say=m -> push!(said, m))
+    ui, said, asked
+end
+
+@testset "setup flow" begin
+    d = mktempdir(); watch = mkdir(joinpath(d, "exports")); p = joinpath(d, "cfg", "config.toml")
+    ui, said, _ = scripted(folder=watch, texts=[BC_URL])
+    cfg = run_setup(p; ui=ui, test_alert=false, offer_startup=false)
+    @test cfg.watch_dirs == [watch] && cfg.basecamp_enabled
+    @test load_config(p).basecamp_url == BC_URL
+    @test load_config(p).log_path == joinpath(d, "cfg", "wellformed.log")
+
+    # invalid URL is re-asked; then accepted blank => popup only
+    ui, said, asked = scripted(folder=watch, texts=["not a url", ""])
+    cfg = run_setup(joinpath(d, "b.toml"); ui=ui, test_alert=false, offer_startup=false)
+    @test length(asked) == 2 && !cfg.basecamp_enabled
+
+    # cancelled or bad folder saves nothing
+    ui, said, _ = scripted(folder=nothing, texts=[])
+    @test run_setup(joinpath(d, "c.toml"); ui=ui, test_alert=false) === nothing && !isfile(joinpath(d, "c.toml"))
+    ui, said, _ = scripted(folder=joinpath(d, "nope"), texts=[])
+    @test run_setup(joinpath(d, "d.toml"); ui=ui, test_alert=false) === nothing
+
+    # re-running keeps existing values as defaults and can change the folder
+    other = mkdir(joinpath(d, "other"))
+    ui, _, _ = scripted(folder=other, texts=[BC_URL])
+    @test run_setup(p; ui=ui, test_alert=false, offer_startup=false).watch_dirs == [other]
+end
+
+@testset "basecamp errors never leak the URL" begin
+    secret = "SECRETKEY123"
+    n = Wellformed.BasecampNotifier("https://127.0.0.1:9/4/integrations/$secret/buckets/1/chats/2/line")
+    r = Wellformed.CheckResult("x.xlsx", FAIL, [Wellformed.Issue(FAIL, "bad")], "", 0.0)
+    err = try Wellformed.notify(n, r, Config()); nothing catch e; sprint(showerror, e) end
+    @test err !== nothing && !occursin(secret, err)
+    @test Wellformed._lines_url(BC_URL) == BC_URL * "s"
+    @test Wellformed._lines_url(BC_URL * "s/") == BC_URL * "s"
+end
+
+@testset "login startup (macOS LaunchAgent)" begin
+    if Sys.isapple()
+        d = mktempdir()
+        path = install_startup(exe="/Applications/Wellformed & Co/wellformed", plist_dir=d)
+        txt = read(path, String)
+        @test occursin("RunAtLoad", txt) && occursin("Wellformed &amp; Co", txt)
+        @test success(`plutil -lint $path`)
+        @test uninstall_startup(plist_dir=d) && !isfile(path) && !uninstall_startup(plist_dir=d)
+    end
+    @test_throws ErrorException Wellformed._app_exe()      # running under julia, not a built app
+end
