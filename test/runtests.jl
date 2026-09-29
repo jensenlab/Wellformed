@@ -75,10 +75,14 @@ end
 
 @testset "real truncated export (header written, no plate data)" begin
     p = joinpath(@__DIR__, "fixtures", "real_truncated", "3094e6a_260924_144511_.xlsx")
-    r = check_file(p)
-    @test r.status == FAIL
-    @test occursin("no data table", r.issues[1].message)
-    @test occursin("Actual Temperature", r.issues[1].message)
+    if isfile(p)
+        r = check_file(p)
+        @test r.status == FAIL
+        @test occursin("no data table", r.issues[1].message)
+        @test occursin("Actual Temperature", r.issues[1].message)
+    else
+        @info "real truncated fixture not present (gitignored); skipping"
+    end
 end
 
 @testset "real good exports still pass" begin

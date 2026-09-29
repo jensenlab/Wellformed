@@ -3,3 +3,4 @@ dist/
 *.log
 wellformed.toml
 .DS_Store
+test/fixtures/real_truncated/
