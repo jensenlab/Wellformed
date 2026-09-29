@@ -55,6 +55,7 @@ function _usage()
     wellformed --setup                choose the folder to watch and the Basecamp chatbot; saves settings
     wellformed --install-startup      start automatically at login (--uninstall-startup to undo)
     wellformed --test-alert [CONFIG]  send a fake failure through the configured alerts
+    wellformed --version              print the version and this program's path
     wellformed --check FILE [FILE...] check files once, print results, exit 1 if any FAIL
 
     Settings file: $(config_path())
@@ -65,6 +66,9 @@ function main(args::Vector{String}=ARGS)
     cmd = isempty(args) ? "" : args[1]
     if cmd in ("-h", "--help")
         _usage(); return 0
+    elseif cmd == "--version"
+        println("Wellformed ", pkgversion(Wellformed), "  app: ", try _app_exe() catch; "(not a built app)" end)
+        return 0
     elseif cmd == "--check"
         files = args[2:end]
         isempty(files) && (_usage(); return 2)

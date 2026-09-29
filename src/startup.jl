@@ -4,14 +4,15 @@ const _AGENT_LABEL = "com.jensenlab.wellformed"
 
 "Path of the running app. Only meaningful for a built app, not `julia` itself."
 function _app_exe()
-    exe = Base.julia_cmd().exec[1]
-    if lowercase(splitext(basename(exe))[1]) == "julia"
-        error("start at login only works from the built wellformed app (this is running under Julia); " *
-              "set WELLFORMED_EXE to the app's path to override")
-    end
+    # A PackageCompiler app keeps its launcher next to the bundled runtime: <app>/bin/Wellformed[.exe].
+    # (Base.julia_cmd() would point at the helper bin/julia instead.) Under plain Julia this file
+    # does not exist, which is what stops us registering `julia` itself as a login item.
+    exe = joinpath(Sys.BINDIR, "Wellformed" * (Sys.iswindows() ? ".exe" : ""))
+    isfile(exe) || error("start at login only works from the built wellformed app (this is running under Julia); " *
+                         "set WELLFORMED_EXE to the app's path to override")
     return exe
 end
-_exe() = get(ENV, "WELLFORMED_EXE") do; _app_exe() end
+_exe() = (e = get(ENV, "WELLFORMED_EXE", ""); isempty(e) ? _app_exe() : e)
 
 _windows_shortcut() = joinpath(get(ENV, "APPDATA", homedir()), "Microsoft", "Windows",
                                "Start Menu", "Programs", "Startup", "Wellformed.lnk")

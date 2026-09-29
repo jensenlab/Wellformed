@@ -1,6 +1,7 @@
 # Exercised during the app build so the first real check is fast.
 using Wellformed
-fx = normpath(joinpath(@__DIR__, "..", "test", "fixtures"))
+fx = joinpath(@__DIR__, "fixtures")
 isdir(fx) && for f in readdir(fx; join=true)
-    check_file(f)
+    isfile(f) && check_file(f)
 end
+Wellformed.main(["--help"])

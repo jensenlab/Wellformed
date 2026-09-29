@@ -156,3 +156,9 @@ end
     end
     @test_throws ErrorException Wellformed._app_exe()      # running under julia, not a built app
 end
+
+@testset "empty WELLFORMED_EXE is treated as unset" begin
+    withenv("WELLFORMED_EXE" => "") do
+        @test_throws ErrorException Wellformed._exe()
+    end
+end
