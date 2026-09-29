@@ -1,0 +1,5 @@
+Manifest.toml
+dist/
+*.log
+wellformed.toml
+.DS_Store

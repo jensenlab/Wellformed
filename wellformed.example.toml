@@ -1,0 +1,20 @@
+# Copy to wellformed.toml and edit.
+watch_dirs = ['C:\PlateReaderExports']
+recursive = false
+extensions = [".xlsx", ".xls", ".ses", ".csv", ".txt", ".xml"]
+
+poll_seconds = 2
+settle_seconds = 5          # file must be unchanged this long (and readable) before it is checked
+check_existing = false      # true: also check files already in the folder at startup
+unrecognized_is_failure = true
+alert_on_warnings = false   # true: popups/Basecamp for WARN as well as FAIL
+log_path = 'wellformed.log'
+# machine_name = "Epoch2-Bench3"
+
+[popup]
+enabled = true
+
+[basecamp]
+enabled = false
+# Campfire chatbot URL. Treat as a secret; prefer the WELLFORMED_BASECAMP_URL environment variable.
+# url = ""

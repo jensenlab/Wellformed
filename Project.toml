@@ -1,0 +1,28 @@
+name = "Wellformed"
+uuid = "85d31b6d-525c-48a2-b979-97f5b32c4880"
+version = "0.1.0"
+authors = ["Ben David"]
+
+[deps]
+CHESSParsers = "c41996af-383d-4049-9b52-09a73c86e265"
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
+XLSX = "fdbf4ff8-1666-58a4-91e7-1b58723a45e0"
+
+[sources]
+# Local checkout for development. For the Windows build machine, swap for:
+#   CHESSParsers = {url = "https://github.com/jensenlab/CHESS.git", subdir = "CHESSParsers"}
+CHESSParsers = {path = "../CHESS/CHESSParsers"}
+
+[compat]
+CHESSParsers = "0.1"
+DataFrames = "1.8"
+XLSX = "0.12"
+julia = "1.12"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
