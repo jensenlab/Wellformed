@@ -52,6 +52,7 @@ function _usage()
     println("""
     wellformed [config.toml]          watch the folders in the config (default: ./wellformed.toml)
     wellformed --check FILE [FILE...] check files once, print results, exit 1 if any FAIL
+    wellformed --test-alert [config.toml]  send a fake failure through the configured alerts
     """)
 end
 
@@ -70,6 +71,17 @@ function main(args::Vector{String}=ARGS)
             worst = max(worst, r.status)
         end
         return worst == FAIL ? 1 : 0
+    end
+    if !isempty(args) && args[1] == "--test-alert"
+        cfgpath = length(args) >= 2 ? args[2] : "wellformed.toml"
+        cfg = isfile(cfgpath) ? load_config(cfgpath) : Config()
+        r = CheckResult("TEST_ALERT.xlsx", FAIL,
+                        [Issue(FAIL, "this is a test of the Wellformed alert path; no real file is affected")], "", 0.0)
+        ns = default_notifiers(cfg)
+        println("sending test alert via: ", isempty(ns) ? "(no notifiers enabled)" : join(nameof.(typeof.(ns)), ", "))
+        foreach(wait, handle_result(cfg, r, ns))
+        println("done; check the log for any notifier errors: ", cfg.log_path)
+        return 0
     end
     cfgpath = isempty(args) ? "wellformed.toml" : args[1]
     if !isfile(cfgpath)

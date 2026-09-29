@@ -8,6 +8,7 @@ blocking dialog and posts to a Basecamp Campfire. Successes are only logged.
 ```
 julia --project -e 'using Wellformed; exit(main(["--check", "export.xlsx"]))'   # one-off check
 wellformed wellformed.toml                                                       # watch mode
+wellformed --test-alert wellformed.toml                                        # verify popup + Basecamp
 ```
 
 Checks: zero-byte / truncated zip (`.xlsx`), format detection, a full CHESSParsers parse, then
