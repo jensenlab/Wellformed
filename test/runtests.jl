@@ -1,4 +1,4 @@
-using Test, Wellformed
+using Test, Wellformed, Sockets
 
 const FIXTURES = joinpath(dirname(dirname(pathof(Wellformed))), "..", "CHESS", "CHESSParsers", "test", "fixtures") |> normpath
 const GOOD = filter(f -> endswith(f, ".xlsx") || endswith(f, ".SES"), readdir(FIXTURES; join=true))
@@ -165,4 +165,48 @@ end
     withenv("WELLFORMED_EXE" => "") do
         @test_throws ErrorException Wellformed._exe()
     end
+end
+
+@testset "basecamp message encoding is pure ASCII UTF-8 percent-encoding" begin
+    enc = Wellformed._urlencode
+    @test enc("abc XYZ-._~09") == "abc%20XYZ-._~09"
+    @test enc("24×2 [x]\n\"q\" & =") == "24%C3%972%20%5Bx%5D%0A%22q%22%20%26%20%3D"
+    @test all(<(0x80), codeunits(enc("naïve → 温度 ×")))
+    # round trip through curl's own decoder-equivalent: bytes recovered exactly
+    s = "Matrix{Any} at index [22, 3] × ü"
+    dec = String(UInt8[c for c in (let b = codeunits(enc(s)), out = UInt8[], i = 1
+        while i <= length(b)
+            if b[i] == UInt8('%'); push!(out, parse(UInt8, String(b[i+1:i+2]); base=16)); i += 3
+            else push!(out, b[i]); i += 1 end
+        end; out end)])
+    @test dec == s
+end
+
+@testset "basecamp request as seen by a local server" begin
+    server = listen(ip"127.0.0.1", 0); port = getsockname(server)[2]
+    got = Ref("")
+    t = @async begin
+        c = accept(server)
+        buf = UInt8[]
+        while true
+            append!(buf, readavailable(c))
+            s = String(copy(buf)); i = findfirst("\r\n\r\n", s)
+            if i !== nothing
+                m = match(r"Content-Length: (\d+)"i, s)
+                length(buf) >= last(i) + parse(Int, m[1]) && break
+            end
+        end
+        got[] = String(buf)
+        write(c, "HTTP/1.1 201 Created\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"); close(c)
+    end
+    msg = Wellformed.Issue(FAIL, "index [22, 3] of 24×2 Matrix \"x\"")
+    r = Wellformed.CheckResult("/a/b/bad.xlsx", FAIL, [msg], "", 0.0)
+    Wellformed.notify(Wellformed.BasecampNotifier("http://127.0.0.1:$port/1/integrations/K/buckets/2/chats/3/line"), r, Config(machine_name="PC1"))
+    wait(t); close(server)
+    req = got[]
+    @test startswith(req, "POST /1/integrations/K/buckets/2/chats/3/lines ")
+    @test occursin(r"Content-Type: application/x-www-form-urlencoded"i, req)
+    body = split(req, "\r\n\r\n"; limit=2)[2]
+    @test all(<(0x80), codeunits(body)) && startswith(body, "content=")
+    @test occursin("24%C3%972", body) && occursin("bad.xlsx", body) && occursin("PC1", body)
 end
