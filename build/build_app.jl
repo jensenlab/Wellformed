@@ -23,7 +23,7 @@ cp(joinpath(ROOT, "test", "fixtures"), joinpath(STAGE, "fixtures"))
 cp(joinpath(@__DIR__, "precompile.jl"), joinpath(STAGE, "precompile.jl"))
 
 proj = read(joinpath(ROOT, "Project.toml"), String)
-proj, n = let re = r"^CHESSParsers = \{path = [^\n]*\}$"m
+proj, n = let re = r"^CHESSParsers = \{path = [^\r\n]*\}"m   # no $ anchor: checkouts on Windows have CRLF endings
     replace(proj, re => "CHESSParsers = {url = \"https://github.com/jensenlab/CHESS.git\", subdir = \"CHESSParsers\", rev = \"main\"}"), count(re, proj)
 end
 n == 1 || error("expected exactly one CHESSParsers path source in Project.toml, found $n")
